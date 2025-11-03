@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resuelve Sistemas 2x2 - Álgebra Lineal</title>
+    <link rel="stylesheet" href="estilos.css">
+    
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script> 
+    
+</head>
+<body>
+    <div class="container" id="printable-content"> 
+        
+        <div class="main-title-section">
+            <img src="https://media.licdn.com/dms/image/v2/C4E0BAQH7EXugYub_kQ/company-logo_200_200/company-logo_200_200/0/1636467497091?e=2147483647&v=beta&t=znh96VYZv7b_huEtkr45FlTOuOLHIV7-idlyk7RjbUs" alt="Logo Institucional" class="institute-logo">
+            <h1 id="main-title">RESOLUCIÓN DE SISTEMAS LINEALES 2X2</h1>
+        </div>
+        <div class="header-data" id="header-data">
+            <h2>Datos del Trabajo y la Materia</h2>
+            <div class="data-fields">
+                <label>Instituto: <input type="text" id="instituto" placeholder="Nombre del Instituto" class="data-input" value="Instituto Superior de Álgebra"></label>
+                <label>Materia: <input type="text" id="materia" value="Álgebra Lineal" class="data-input"></label>
+                <label>Fecha: <input type="date" id="fecha" class="data-input" value="2024-10-27"></label>
+                <label>Jornada: <input type="text" id="jornada" placeholder="Diurna/Nocturna" class="data-input"></label>
+                <label>Carrera: <input type="text" id="carrera" placeholder="Carrera Cursada" class="data-input"></label>
+                <label>Integrantes: <input type="text" id="integrantes" placeholder="Nombres de los Integrantes" class="data-input"></label>
+            </div>
+        </div>
+        
+        <p class="auth-status" id="auth-status">Cargando...</p>
+        
+        <div class="input-section" id="input-controls">
+            <div class="equation-row">
+                <input type="number" id="a1" placeholder="a1" value="2">x + <input type="number" id="b1" placeholder="b1" value="1">y = <input type="number" id="c1" placeholder="c1" value="8"> (Ec. 1)
+            </div>
+            <div class="equation-row">
+                <input type="number" id="a2" placeholder="a2" value="3">x + <input type="number" id="b2" placeholder="b2" value="-1">y = <input type="number" id="c2" placeholder="c2" value="7"> (Ec. 2)
+            </div>
+
+            <div class="action-controls">
+                <label for="metodo">Método:</label>
+                <select id="metodo">
+                    <option value="graficacion">Gráfico</option>
+                    <option value="igualacion">Igualación</option>
+                    <option value="sustitucion">Sustitución</option>
+                    <option value="eliminacion">Eliminación (Reducción)</option>
+                    <option value="determinantes">Determinantes (Cramer)</option>
+                </select>
+                
+                <button onclick="agregarEjercicioAlReporte()">Resolver y Añadir al Reporte</button> 
+                <button onclick="guardarEjercicio()">Guardar Ejercicio</button> 
+                <button onclick="resolverEnVivo()">Resolver en Vivo</button> 
+                <button onclick="abrirEnGeoGebra()">Ver en GeoGebra</button>
+            </div>
+        </div>
+
+        <div class="tabulacion-manual-section" id="tabulacion-manual-section" style="display: none;">
+            <h3>Tabulación Manual (Opcional para Gráfico)</h3>
+            <div class="tab-manual-input">
+                <p>Punto 1 (Ec. 1): x=<input type="number" id="x1_p1" value="0"> y=<input type="number" id="y1_p1" placeholder="automático"></p>
+                <p>Punto 2 (Ec. 1): x=<input type="number" id="x1_p2" value="4"> y=<input type="number" id="y1_p2" placeholder="automático"></p>
+                <p>Punto 1 (Ec. 2): x=<input type="number" id="x2_p1" value="0"> y=<input type="number" id="y2_p1" placeholder="automático"></p>
+                <p>Punto 2 (Ec. 2): x=<input type="number" id="x2_p2" value="3"> y=<input type="number" id="y2_p2" placeholder="automático"></p>
+            </div>
+        </div>
+        
+        <div class="output-section">
+            <h2 id="output-title">Resultado y Proceso</h2>
+            <div class="graph-wrapper" id="graph-wrapper" style="display: none;">
+                <div id="graph-container" style="height: 400px; width: 100%;"></div>
+            </div>
+            <div id="proceso">
+                <p>Ingrese los coeficientes del sistema 2x2 y seleccione un método para ver el proceso de resolución y el resultado aquí.</p>
+            </div>
+        </div>
+
+        <div class="saved-exercises-section">
+            <h2>Ejercicios Guardados</h2>
+            <div id="ejercicios-list">
+                <p>Aún no has guardado ningún ejercicio. ¡Resuelve y guarda uno!</p>
+            </div>
+            <div id="proceso-guardado-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <span class="close-button" onclick="cerrarModal()">×</span>
+                    <div id="proceso-guardado-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="reporte-section">
+            <h2>Reporte de Ejercicios</h2>
+            <div id="reporte-ejercicios-list">
+                </div>
+        </div>
+        
+        <div class="final-controls">
+            <button onclick="exportarAPDF()">Exportar Reporte a PDF</button>
+            <button onclick="limpiarReporte()">Limpiar Reporte</button>
+        </div>
+        
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script type="module">
+        // Firebase Config (Asegura que tu configuración se cargue aquí)
+        const firebaseConfig = {
+            // ... (AQUÍ DEBE IR TU CONFIGURACIÓN REAL DE FIREBASE) ...
+            apiKey: "AIzaSyC...", 
+            authDomain: "projectId.firebaseapp.com",
+            projectId: "projectId",
+            storageBucket: "projectId.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:a1b2c3d4e5f6g7h8i9j0"
+        };
+        
+        // Asignamos la App ID a una variable global que script.js puede usar
+        window.__app_id = firebaseConfig.appId;
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        window.db = firebase.firestore(); // Hacemos la referencia a Firestore global
+
+        // Configuración de Logging para Debug
+        // firebase.firestore.setLogLevel('debug'); // Ver logs de Firestore
+
+        // Manejo de Autenticación
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        const initialAuthToken = ''; // Si tienes un token de sesión inicial
+
+        // Manejo de Autenticación
+        onAuthStateChanged(getAuth(), async (user) => {
+            let statusText = 'No autenticado';
+            if (user) {
+                window.userId = user.uid; // Hacemos userId global
+                statusText = `Usuario conectado: ${user.uid}`;
+                // Una vez autenticado, cargamos los ejercicios
+                window.cargarEjercicios(); 
+            } else {
+                 // Si no hay token, iniciamos sesión anónima
+                if (!initialAuthToken) {
+                    await signInAnonymously(getAuth());
+                }
+            }
+            document.getElementById('auth-status').textContent = statusText;
+        });
+
+        // Autenticación inicial (usando el token si existe)
+        if (initialAuthToken) {
+            signInWithCustomToken(getAuth(), initialAuthToken).catch(error => {
+                console.error("Error al iniciar sesión con token:", error);
+                signInAnonymously(getAuth()); // Fallback a anónimo
+            });
+        }
+        
+        // Hacemos las funciones de Firestore globales para usarlas en script.js
+        window.getFirestore = getFirestore;
+        window.collection = collection;
+        window.query = query;
+        window.onSnapshot = onSnapshot;
+        window.addDoc = addDoc;
+        window.deleteDoc = deleteDoc;
+        window.doc = doc;
+        window.getDocs = getDocs;
+
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>
