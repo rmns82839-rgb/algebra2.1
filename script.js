@@ -110,7 +110,8 @@ function despejarY(a, b, c) {
         formula = "0";
     }
 
-    return { m: m_val, n: n_val, formula: `y = ${formula.trim()}` };
+    // MODIFICACIÓN: Retorna los términos simplificados en texto (m_s y n_s) para Sustitución detallada
+    return { m: m_val, n: n_val, m_s: m_s, n_s: n_s, formula: `y = ${formula.trim()}` };
 }
 
 // Helper para Tabulación (AJUSTADA para vista en vivo o reporte)
@@ -301,7 +302,7 @@ function _generateProccessHTML(a1, b1, c1, a2, b2, c2, metodo, containerId, isLi
     // CORRECCIÓN DEL PUNTO DE INTERSECCIÓN (Regla de Cramer)
     const D = a1 * b2 - a2 * b1;
     const Dx = c1 * b2 - c2 * b1;
-    const Dy = a1 * c2 - a2 * c1; // FIX: Se usaba b1 en lugar de c1. Ahora es a1*c2 - a2*c1.
+    const Dy = a1 * c2 - a2 * c1; 
     
     let procesoHTML = `<h3>Sistema a Resolver:</h3>
         <p>Ec. 1: ${formatEq(a1, b1, c1)}</p>
@@ -365,32 +366,138 @@ function _generateProccessHTML(a1, b1, c1, a2, b2, c2, metodo, containerId, isLi
         `;
     } else if (metodo === 'sustitucion') {
         // Despejar la variable más simple (por simplicidad, despejamos y de Ec. 1)
-        const despeje = despejarY(a1, b1, c1);
+        // Se requiere que despejarY retorne m_s y n_s (texto simplificado de la pendiente y ordenada)
+        const { m, n, m_s, n_s, formula: despeje_formula } = despejarY(a1, b1, c1); 
         
+        // Coeficientes y constantes de la ecuación lineal después de la sustitución y distributiva.
+        
+        // 1. Cálculo de términos para el desglose (b2*m y b2*n)
+        // b2*m = b2*(-a1/b1)
+        const term_m_num = b2 * (-a1);
+        const term_m_den = b1;
+        const term_m_s = simplify(term_m_num, term_m_den).text;
+
+        // b2*n = b2*(c1/b1)
+        const term_n_num = b2 * c1;
+        const term_n_den = b1;
+        const term_n_s = simplify(term_n_num, term_n_den).text;
+        
+        // 2. Coeficiente final de x (a2 + b2*m) y Constante final (c2 - b2*n)
+        const coef_x_num = a2 * b1 + term_m_num; // a2*b1 + b2*(-a1)
+        const coef_x_den = b1;
+        const coef_x_s = simplify(coef_x_num, coef_x_den).text;
+        
+        const const_num = c2 * b1 - term_n_num; // c2*b1 - b2*c1
+        const const_den = b1;
+        const const_s = simplify(const_num, const_den).text;
+
         procesoHTML += '<h3>MÉTODO DE SUSTITUCIÓN:</h3>';
+        
+        // PASO 1
         procesoHTML += `
-            <p><b>Paso 1: Despejar una variable en una de las ecuaciones (Ec. 1).</b></p>
-            <p>Ec. 1 \u2192 <code>${despeje.formula}</code></p>
+            <p><b>Paso 1: Despejar una variable en una de las ecuaciones.</b></p>
+            <p class="detalle-paso">Despejamos 'y' de la Ec. 1 (${formatEq(a1, b1, c1)}) para obtener una expresión para 'y':</p>
+            <p class="formula-paso">Ec. 1 Modificada \u2192 <code>${despeje_formula}</code></p>
+        `;
+        
+        // PASO 2
+        const x_term_distrib = `${term_m_s}x`;
+        const const_term_distrib = `${term_n_s}`;
+        
+        procesoHTML += `
             <p><b>Paso 2: Sustituir la expresión en la otra ecuación (Ec. 2) y resolver para 'x'.</b></p>
-            <p>${a2}x + ${b2}*(${despeje.formula.substring(4)}) = ${c2}</p>
-            <p>... Pasos intermedios para resolver ...</p>
+            <p class="detalle-paso">Sustituimos la expresión de 'y' en la Ec. 2 (${formatEq(a2, b2, c2)}):</p>
+            <p class="formula-paso">${formatEq(a2, 0, 0)} + ${b2}*(${despeje_formula.substring(4).trim()}) = ${c2}</p>
+            
+            <p class="detalle-paso">Aplicamos la propiedad distributiva (${b2} se multiplica por cada término):</p>
+            <p class="formula-paso">${formatEq(a2, 0, 0)} ${x_term_distrib.startsWith('-') ? '' : '+'} ${x_term_distrib} ${const_term_distrib.startsWith('-') ? '' : '+'} ${const_term_distrib} = ${c2}</p>
+            
+            <p class="detalle-paso">Agrupamos términos con 'x' a un lado y constantes al otro:</p>
+            <p class="formula-paso">(${a2} ${term_m_s.startsWith('-') ? '' : '+'} ${term_m_s})x = ${c2} ${term_n_s.startsWith('-') ? '+' : '-'} ${simplify(-term_n_num, term_n_den).text}</p>
+            <p class="formula-paso">${coef_x_s}x = ${const_s}</p>
+            
+            <p class="detalle-paso">Despejamos 'x':</p>
             <p class="final-result">x = ${x_result.text}</p>
+        `;
+        
+        // PASO 3
+        const x_to_substitute = x_result.text.includes('/') ? `(${x_result.text})` : x_result.text;
+        
+        procesoHTML += `
             <p><b>Paso 3: Sustituir el valor de 'x' en el despeje del Paso 1 para encontrar 'y'.</b></p>
-            <p>y = ... (con x = ${x_result.text})</p>
+            <p class="detalle-paso">Usamos el despeje: <code>${despeje_formula}</code></p>
+            <p class="formula-paso">y = ${m_s}*${x_to_substitute} ${n_s.startsWith('-') ? '' : '+'} ${n_s}</p>
+            <p class="detalle-paso">Realizamos la operación y simplificamos:</p>
             <p class="final-result">y = ${y_result.text}</p>
         `;
     } else if (metodo === 'eliminacion') {
+        // --- Cálculo para Eliminar 'y' (Encontrar X) ---
+        const M1_x = b2;
+        const M2_x = -b1;
+        
+        const A_x = a1 * M1_x + a2 * M2_x; // Coef. final de x
+        const C_x = c1 * M1_x + c2 * M2_x; // Constante final
+        
+        // Coeficientes resultantes después de la multiplicación
+        const a1_new_x = a1 * M1_x;
+        const b1_new_x = b1 * M1_x; 
+        const c1_new_x = c1 * M1_x;
+        
+        const a2_new_x = a2 * M2_x;
+        const b2_new_x = b2 * M2_x; 
+        const c2_new_x = c2 * M2_x;
+
+        // Simplificamos los resultados finales (aunque sean enteros, para limpieza)
+        const coef_x_s = simplify(A_x, 1).text;
+        const const_x_s = simplify(C_x, 1).text;
+        
+        // --- Cálculo para Eliminar 'x' (Encontrar Y) ---
+        const M1_y = a2;
+        const M2_y = -a1;
+        
+        const B_y = b1 * M1_y + b2 * M2_y; // Coef. final de y
+        const C_y = c1 * M1_y + c2 * M2_y; // Constante final
+        
+        // Coeficientes resultantes después de la multiplicación
+        const a1_new_y = a1 * M1_y;
+        const b1_new_y = b1 * M1_y;
+        const c1_new_y = c1 * M1_y;
+        
+        const a2_new_y = a2 * M2_y;
+        const b2_new_y = b2 * M2_y;
+        const c2_new_y = c2 * M2_y;
+
+        // Simplificamos los resultados finales (aunque sean enteros, para limpieza)
+        const coef_y_s = simplify(B_y, 1).text;
+        const const_y_s = simplify(C_y, 1).text;
+        
         procesoHTML += '<h3>MÉTODO DE ELIMINACIÓN (REDUCCIÓN):</h3>';
+
+        // PASO 1 (Eliminar Y para encontrar X)
         procesoHTML += `
-            <p><b>Paso 1: Multiplicar las ecuaciones para eliminar 'y' (o 'x') y resolver para 'x'.</b></p>
-            <p>Multiplicar Ec. 1 por ${b2} y Ec. 2 por -${b1} (o viceversa) y sumar (o restar) las ecuaciones resultantes.</p>
-            <p>La incógnita 'y' se elimina, quedando:</p>
-            <p>(${a1 * b2 - a2 * b1})x = ${c1 * b2 - c2 * b1}  <small>(Esta operación lineal nos da el mismo resultado que Cramer)</small></p>
+            <p><b>Paso 1: Eliminar 'y' para encontrar 'x'.</b></p>
+            <p class="detalle-paso">Multiplicamos Ec. 1 por ${M1_x} y Ec. 2 por ${M2_x}:</p>
+            <p class="formula-paso">Ec. 1 * ${M1_x} \u2192 <code>${formatEq(a1_new_x, b1_new_x, c1_new_x)}</code></p>
+            <p class="formula-paso">Ec. 2 * ${M2_x} \u2192 <code>${formatEq(a2_new_x, b2_new_x, c2_new_x)}</code></p>
+            
+            <p class="detalle-paso">Sumamos las ecuaciones. 'y' se cancela:</p>
+            <p class="formula-paso">${coef_x_s}x = ${const_x_s}</p>
+            
+            <p class="detalle-paso">Despejamos 'x':</p>
             <p class="final-result">x = ${x_result.text}</p>
-            <p><b>Paso 2: Multiplicar las ecuaciones para eliminar 'x' y resolver para 'y'.</b></p>
-            <p>Multiplicar Ec. 1 por ${a2} y Ec. 2 por -${a1} (o viceversa) y sumar (o restar) las ecuaciones resultantes.</p>
-            <p>La incógnita 'x' se elimina, quedando:</p>
-            <p>(${b1 * a2 - b2 * a1})y = ${c1 * a2 - c2 * a1} <small>(Esta operación lineal nos da el mismo resultado que Cramer)</small></p>
+        `;
+        
+        // PASO 2 (Eliminar X para encontrar Y)
+        procesoHTML += `
+            <p><b>Paso 2: Eliminar 'x' para encontrar 'y'.</b></p>
+            <p class="detalle-paso">Multiplicamos Ec. 1 por ${M1_y} y Ec. 2 por ${M2_y}:</p>
+            <p class="formula-paso">Ec. 1 * ${M1_y} \u2192 <code>${formatEq(a1_new_y, b1_new_y, c1_new_y)}</code></p>
+            <p class="formula-paso">Ec. 2 * ${M2_y} \u2192 <code>${formatEq(a2_new_y, b2_new_y, c2_new_y)}</code></p>
+            
+            <p class="detalle-paso">Sumamos las ecuaciones. 'x' se cancela:</p>
+            <p class="formula-paso">${coef_y_s}y = ${const_y_s}</p>
+            
+            <p class="detalle-paso">Despejamos 'y':</p>
             <p class="final-result">y = ${y_result.text}</p>
         `;
     } else if (metodo === 'determinantes') {
@@ -571,7 +678,7 @@ window.guardarEjercicio = async function() {
     const metodo = document.getElementById('metodo').value;
 
     if ([a1, b1, c1, a2, b2, c2].some(isNaN)) {
-        document.getElementById('proceso').innerHTML = '<p class="error-msg">❌ ERROR: Por favor, ingrese valores numéricos válidos.</p>';
+        document.getElementById('proceso').innerHTML = '<p class="error-msg">❌ ERROR: Por favor, ingrese valores numéricos válidos en todos los campos.</p>';
         return;
     }
     
@@ -583,7 +690,7 @@ window.guardarEjercicio = async function() {
     }
     
     const Dx = c1 * b2 - c2 * b1;
-    const Dy = a1 * c2 - a2 * c1; // FIX: Se usaba b1 en lugar de c1. Ahora es a1*c2 - a2*c1.
+    const Dy = a1 * c2 - a2 * c1; 
     const x_result = simplify(Dx, D).text;
     const y_result = simplify(Dy, D).text;
     
@@ -701,7 +808,7 @@ window.mostrarProcesoGuardado = async function(id) {
 
         const D = a1 * b2 - a2 * b1;
         const Dx = c1 * b2 - c2 * b1;
-        const Dy = a1 * c2 - a2 * c1; // FIX: Se usaba b1 en lugar de c1. Ahora es a1*c2 - a2*c1.
+        const Dy = a1 * c2 - a2 * c1; 
         const x_val = D !== 0 ? Dx / D : NaN;
         const y_val = D !== 0 ? Dy / D : NaN;
         
